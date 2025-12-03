@@ -17,6 +17,10 @@ for bucket in data["buckets"]:
     if bucket["sizeGB"] > 50:
         q.put(bucket)
 
+    today = data.NOW()
+
+    
+
 
 print("Buckets to be deleted are the")
 while not q.empty():        
