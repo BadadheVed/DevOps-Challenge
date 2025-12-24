@@ -1,0 +1,13 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: DevOps-cluster
+  region: ap-south-1
+
+nodeGroups:
+  - name: devops-nodes
+    instanceType: t2.micro
+    desiredCapacity: 3
+    minSize: 3
+    maxSize: 4
