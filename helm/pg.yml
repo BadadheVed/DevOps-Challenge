@@ -1,0 +1,14 @@
+auth:
+  username: ved
+  password: ved
+  database: helmdb
+
+primary:
+  persistence:
+    enabled: true
+    size: 5Gi
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
