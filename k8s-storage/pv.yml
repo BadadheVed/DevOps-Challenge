@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: volume-name
+  spec:
+    capacity:
+      storage: 10Gi # Storage size
+      volumeMode: Filesystem 
+      accessModes:
+        - ReadWriteOnce 
+      persistentVolumeReclaimPolicy: Retain 
+      hostPath:
+        path: /Users/ved/DevOps-Challenge
