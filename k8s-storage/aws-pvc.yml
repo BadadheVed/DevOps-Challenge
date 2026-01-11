@@ -5,11 +5,15 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: awsebc
+  storageClassName: ebs-auto-mode
   resources:
     requests:
       storage: 5Gi
+
+
 ---
+
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -32,7 +36,8 @@ spec:
           value: "mysecretpassword"
         volumeMounts:
         - name: data
-          mountPath: /var/lib/postgresql/data
+          mountPath: /var/lib/postgresql/data  #<-- this is the Pod path that will be mounted
+          subPath: pgdata # <-- here the EBC volume is mounted
       volumes:
       - name: data
         persistentVolumeClaim:

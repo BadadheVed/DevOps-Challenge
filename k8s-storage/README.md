@@ -42,3 +42,20 @@ spec:
 - Here in the above yml file the path var/lib/postgresql/data will be mounted to the /postgres
 
 Alse here we write the mount at which data will be store as the hostPath and the data that we want to store at the mountPath
+
+## To take the AWS EKS to local terminal
+
+```json
+aws eks update-kubeconfig --region ap-south-1 --name YOUR_CLUSTER_NAME
+```
+
+## Associate Access Policy
+
+```json
+aws eks associate-access-policy \
+  --cluster-name eks-storage-app \
+  --principal-arn arn:aws:iam::327327820939:user/k8s \
+  --access-scope type=cluster \
+  --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy \
+  --region ap-south-1
+```

@@ -1,8 +1,9 @@
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
-  name: awsebc
-provisioner: ebs.csi.aws.com
-volumeBindingMode: WaitForFirstConsumer
+  name: ebs-auto-mode
+provisioner: ebs.csi.eks.amazonaws.com
 parameters:
   type: gp3
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: true
