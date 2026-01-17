@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus-deploy
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: prometheus-app
+  template:
+    metadata:
+      labels:
+        app: prometheus-app
+    spec:
+      containers:
+      - name: prometheus-app
+        image: ved104/prometheus-app
