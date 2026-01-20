@@ -76,3 +76,19 @@ helm repo update
 helm install otel-collector open-telemetry/opentelemetry-collector \
   -n monitoring -f otel-values.yml
 ```
+
+## To pass the secrets in the yaml from the k8sin runtime use the 
+```json
+kubectl create secret generic loki-s3-credentials \
+  -n monitoring \
+  --from-literal=AWS_ACCESS_KEY_ID=<key> \
+  --from-literal=AWS_SECRET_ACCESS_KEY=<secret>
+```
+
+- And then use them in the file as the means add this in the bottom of the file
+
+```yml
+extraEnvFrom:
+  - secretRef:
+      name: loki-s3-credentials
+```

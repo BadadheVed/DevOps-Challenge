@@ -21,6 +21,11 @@ config:
       check_interval: 5s
       limit_percentage: 80
       spike_limit_percentage: 25
+    attributes:
+      actions:
+        - key: trace_id
+          from_attribute: trace_id
+          action: upsert
 
   exporters:
     otlp/tempo:
@@ -51,7 +56,7 @@ config:
     pipelines:
       metrics:
         receivers: [otlp]
-        processors: [memory_limiter, batch]
+        processors: [memory_limiter,  batch]
         exporters: [debug]
 
       traces:
@@ -61,5 +66,5 @@ config:
 
       logs:
         receivers: [otlp]
-        processors: [memory_limiter, batch]
+        processors: [memory_limiter, attributes, batch] # this attributes processor is used to add trace_id to logs which is used to link them that linkinf is done in the grafana dashboard
         exporters: [loki, debug]

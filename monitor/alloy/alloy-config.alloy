@@ -1,0 +1,100 @@
+logging {
+    level  = "info"
+    format = "logfmt"
+}
+
+// ============================================================================
+// OTLP Receivers - Accept telemetry from FastAPI
+// ============================================================================
+otelcol.receiver.otlp "default" {
+  grpc {
+    endpoint = "0.0.0.0:4317"
+  }
+
+  http {
+    endpoint = "0.0.0.0:4318"
+  }
+
+  output {
+    metrics = [otelcol.processor.batch.default.input]
+    logs    = [otelcol.processor.batch.default.input]
+    traces  = [otelcol.processor.batch.default.input]
+  }
+}
+
+// ============================================================================
+// Processors
+// ============================================================================
+otelcol.processor.batch "default" {
+  timeout = "10s"
+  send_batch_size = 1024
+  
+  output {
+    metrics = [otelcol.exporter.prometheus.default.input]
+    logs    = [otelcol.exporter.loki.default.input]
+    traces  = [otelcol.exporter.otlp.tempo.input]
+  }
+}
+
+// ============================================================================
+// Exporters
+// ============================================================================
+
+// Export traces to Tempo
+otelcol.exporter.otlp "tempo" {
+  client {
+    endpoint = "tempo.monitoring.svc.cluster.local:4317"
+    tls {
+      insecure = true
+    }
+  }
+}
+
+// Export logs to Loki
+otelcol.exporter.loki "default" {
+  forward_to = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+  endpoint {
+    url = "http://loki-loki-distributed-gateway.monitoring.svc.cluster.local:80/loki/api/v1/push"
+  }
+}
+
+// Export metrics to Prometheus
+otelcol.exporter.prometheus "default" {
+  forward_to = [prometheus.remote_write.default.receiver]
+}
+
+prometheus.remote_write "default" {
+  endpoint {
+    url = "http://prometheus-monitoring-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090/api/v1/write"
+  }
+}
+
+// ============================================================================
+// Kubernetes Service Discovery (existing)
+// ============================================================================
+discovery.kubernetes "pods" {
+    role = "pod"
+}
+
+discovery.kubernetes "nodes" {
+    role = "node"
+}
+
+discovery.kubernetes "services" {
+    role = "service"
+}
+
+discovery.kubernetes "endpoints" {
+    role = "endpoints"
+}
+
+discovery.kubernetes "endpointslices" {
+    role = "endpointslice"
+}
+
+discovery.kubernetes "ingresses" {
+    role = "ingress"
+}

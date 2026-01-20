@@ -24,8 +24,7 @@ spec:
         - containerPort: 8000
           name: http
         env:
-        # Use gRPC endpoint (port 4317), not HTTP (4318)
-        - name: OTEL_EXPORTER_OTLP_ENDPOINT
-          value: "otel-collector.monitoring.svc.cluster.local:4317"
+        - name: ALLOY_ENDPOINT
+          value: "alloy.monitoring.svc.cluster.local:4317"
         - name: OTEL_SERVICE_NAME
           value: "fastapi-telemetry-app"
