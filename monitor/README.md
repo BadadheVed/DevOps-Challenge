@@ -62,3 +62,17 @@ kubectl port-forward -n monitoring svc/monitoring-grafana 3000:80
 
 # Then open the grafana in your browser
 http://localhost:3000
+
+## To Install the telemetry collector
+
+```json
+helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
+helm repo update
+
+```
+
+## After this install the telemetry collector
+```json
+helm install otel-collector open-telemetry/opentelemetry-collector \
+  -n monitoring -f otel-values.yml
+```

@@ -1,0 +1,65 @@
+nameOverride: "otel-collector"
+fullnameOverride: "otel-collector"
+
+mode: deployment
+
+image:
+  repository: "otel/opentelemetry-collector-contrib"
+  tag: "0.93.0"
+  pullPolicy: IfNotPresent
+
+config:
+  receivers:
+    otlp:
+      protocols:
+        http: {}
+        grpc: {}
+
+  processors:
+    batch: {}
+    memory_limiter:
+      check_interval: 5s
+      limit_percentage: 80
+      spike_limit_percentage: 25
+
+  exporters:
+    otlp/tempo:
+      endpoint: tempo.monitoring.svc.cluster.local:4317
+      tls:
+        insecure: true
+
+    loki:
+      endpoint: http://loki-loki-distributed-distributor.monitoring.svc.cluster.local:3100/loki/api/v1/push
+      # Add timeout and retry settings
+      timeout: 10s
+      retry_on_failure:
+        enabled: true
+        initial_interval: 5s
+        max_interval: 30s
+        max_elapsed_time: 300s
+
+    debug:
+      verbosity: detailed  # Add this to see more info
+
+  service:
+    telemetry:
+      logs:
+        level: debug  # Enable debug logging
+      metrics:
+        address: "0.0.0.0:8889"
+
+    pipelines:
+      metrics:
+        receivers: [otlp]
+        processors: [memory_limiter, batch]
+        exporters: [debug]
+
+      traces:
+        receivers: [otlp]
+        processors: [memory_limiter, batch]
+        exporters: [otlp/tempo, debug]
+
+      logs:
+        receivers: [otlp]
+        processors: [memory_limiter, batch]
+        exporters: [loki, debug]

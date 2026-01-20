@@ -3,13 +3,18 @@ kind: ServiceMonitor
 metadata:
   name: prometheus-app-sm
   namespace: monitoring
+  labels:
+    release: monitoring
 spec:
+  jobLabel: app
   selector:
     matchLabels:
       app: prometheus-app
+  targetLabels:
+    - app
   namespaceSelector:
     matchNames:
-      - default   # namespace of the deployment
+      - default
   endpoints:
     - port: http
       path: /metrics

@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: prometheus-deploy
+  namespace: default
 spec:
   replicas: 3
   selector:
@@ -11,7 +12,20 @@ spec:
     metadata:
       labels:
         app: prometheus-app
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
     spec:
       containers:
       - name: prometheus-app
-        image: ved104/prometheus-app
+        image: ved104/prometheus-app:latest
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        # Use gRPC endpoint (port 4317), not HTTP (4318)
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "otel-collector.monitoring.svc.cluster.local:4317"
+        - name: OTEL_SERVICE_NAME
+          value: "fastapi-telemetry-app"

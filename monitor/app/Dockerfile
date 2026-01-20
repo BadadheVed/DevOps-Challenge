@@ -1,18 +1,23 @@
-FROM node:18-alpine AS builder
+
+FROM python:3.11-slim
 
 WORKDIR /app
-COPY package*.json ./
-RUN npm install
 
-COPY . .
-RUN npm run build   
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
-FROM node:18-alpine AS runner
-WORKDIR /app
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
-EXPOSE 3000
-CMD ["node", "dist/index.js"]
+COPY main.py .
+COPY start.sh .
+RUN chmod +x start.sh
+RUN adduser --disabled-password --gecos "" appuser && chown -R appuser /app
+USER appuser
 
+EXPOSE 8000
 
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
