@@ -2,16 +2,22 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: app-ingress
+  namespace: default
   annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-prod
     nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/server-snippet: |
+      location /metrics {
+        deny all;
+        return 403 "Metrics endpoint is not publicly accessible";
+      }
+    cert-manager.io/cluster-issuer: letsencrypt-prod  
 spec:
   ingressClassName: nginx
-  tls:
-    - hosts:
-        - backend.vedcsn.com
-        - nginx.vedcsn.com
-      secretName: vedcsn-tls
+  tls:  
+  - hosts:
+    - backend.vedcsn.com
+    - nginx.vedcsn.com
+    secretName: vedcsn-tls
   rules:
     - host: backend.vedcsn.com
       http:
@@ -23,7 +29,7 @@ spec:
                 name: backend-service
                 port:
                   number: 80
-
+    
     - host: nginx.vedcsn.com
       http:
         paths:

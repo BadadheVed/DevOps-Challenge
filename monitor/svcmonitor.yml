@@ -14,7 +14,7 @@ spec:
     - app
   namespaceSelector:
     matchNames:
-      - default
+      - default # this tells as the to watch in the default namespac also beasue the ServiceMonitor is like it looks only in its own namespace 
   endpoints:
     - port: http
       path: /metrics

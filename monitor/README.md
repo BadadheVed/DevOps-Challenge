@@ -92,3 +92,28 @@ extraEnvFrom:
   - secretRef:
       name: loki-s3-credentials
 ```
+
+## To launch teh ngix ingress controller
+
+```json
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.9.6/deploy/static/provider/aws/deploy.yaml
+
+```
+**After Launching the ingress controller patch t with the command**
+
+```yml
+kubectl patch svc ingress-nginx-controller -n ingress-nginx -p '{
+  "metadata": {
+    "annotations": {
+      "service.beta.kubernetes.io/aws-load-balancer-type": "nlb",
+      "service.beta.kubernetes.io/aws-load-balancer-scheme": "internet-facing"
+    }
+  }
+}'
+```
+
+**Command to install cert manager**
+```json
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.yaml
+```
+

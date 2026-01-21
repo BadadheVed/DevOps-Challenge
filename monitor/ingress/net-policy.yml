@@ -1,0 +1,36 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-monitoring-and-ingress
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: prometheus-app  # Apply to your app pods
+  policyTypes:
+  - Ingress
+  ingress:
+  # Rule 1: Allow from monitoring namespace (Prometheus scraping)
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 8000
+  
+  # Rule 2: Allow from ingress-nginx namespace (public traffic)
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          app.kubernetes.io/name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 8000
+  
+  # Rule 3: Allow from same namespace (internal communication)
+  - from:
+    - podSelector: {}
+    ports:
+    - protocol: TCP
+      port: 8000

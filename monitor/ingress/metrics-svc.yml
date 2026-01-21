@@ -1,13 +1,15 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: app-metrics
+  name: backend-metrics
   namespace: default
+  labels:
+    app: prometheus-app
 spec:
-  type: ClusterIP  # Internal only, not exposed to load balancer
+  type: ClusterIP
   selector:
-    app: prometheus-app # Match your app's labels
+    app: prometheus-app
   ports:
-  - name: metrics
-    port: 8080  # Or whatever port your app exposes metrics on
-    targetPort: 8000
+    - name: http
+      port: 80        # Service listens on 80
+      targetPort: 8000  # Forwards to pod port 8000
