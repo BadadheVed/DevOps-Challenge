@@ -7,3 +7,6 @@ __pycache__/
 npm_modules
 venv
 loki-aws.yml
+tempo-values.yaml
+loki-values.yaml
+tempo.yml
