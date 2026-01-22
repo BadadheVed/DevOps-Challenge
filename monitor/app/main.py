@@ -183,7 +183,7 @@ async def metrics_middleware(request: Request, call_next):
 async def hello() -> Dict[str, str]:
     with tracer.start_as_current_span("hello-endpoint") as span:
         span.set_attribute("endpoint", "hello")
-        
+        span.set_status(trace.Status(trace.StatusCode.OK, "Hello processing completed"))
         logger.info("Hello endpoint called")
         
         return {"message": "Hello from the telemetry-enabled app"}
@@ -193,9 +193,12 @@ async def hello() -> Dict[str, str]:
 async def normal() -> Dict[str, str]:
     with tracer.start_as_current_span("normal-endpoint") as span:
         span.set_attribute("endpoint", "normal")
-        
+        span.set_status(trace.Status(trace.StatusCode.OK, "Normal processing completed"))
         logger.info("Normal endpoint - processing started")
-        
+        logger.info("this is the 2nd trace")
+        logger.info("this is the 3rd trace")
+        logger.info("this is the 4th trace")
+        logger.info("this is the 5th trace")
         delay = random.uniform(0.1, 0.2)
         span.set_attribute("processing_delay_ms", delay * 1000)
         time.sleep(delay)
@@ -216,13 +219,15 @@ async def error() -> None:
         logger.error("Error endpoint called - about to raise exception")
         
         try:
+            span.set_status(trace.Status(trace.StatusCode.ERROR, "error processing completed"))
             raise ValueError("This is an intentional error for testing!")
+           
         except Exception as e:
             span.record_exception(e)
             span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
             
             logger.exception("Exception occurred in error endpoint")
-            
+            span.set_status(trace.Status(trace.StatusCode.ERROR, "Error processing completed"))
             raise
 
 

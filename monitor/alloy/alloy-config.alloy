@@ -57,8 +57,12 @@ otelcol.exporter.loki "default" {
 
 loki.write "default" {
   endpoint {
-    url = "http://loki-loki-distributed-gateway.monitoring.svc.cluster.local:80/loki/api/v1/push"
+    url = "http://loki-gateway.monitoring.svc.cluster.local:80/loki/api/v1/push"
+    headers = {
+    "X-Scope-OrgID" = "neo-dev",
+    }
   }
+  
 }
 
 // Export metrics to Prometheus
@@ -68,7 +72,7 @@ otelcol.exporter.prometheus "default" {
 
 prometheus.remote_write "default" {
   endpoint {
-    url = "http://prometheus-monitoring-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090/api/v1/write"
+    url = "http://monitoring-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090/api/v1/write"
   }
 }
 

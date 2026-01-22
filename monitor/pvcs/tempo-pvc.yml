@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: storage-tempo-0
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: tempo
+    app.kubernetes.io/instance: tempo
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ebs-auto-mode
+  resources:
+    requests:
+      storage: 10Gi

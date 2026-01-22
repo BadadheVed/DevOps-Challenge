@@ -1,52 +1,63 @@
 loki:
-  ingester:
-    chunk_idle_period: 1m
-    chunk_retain_period: 1m
-    max_transfer_retries: 0
-    max_chunk_age: 1m
-    flush_check_period: 10s
-    flush_op_timeout: 30s
-
   commonConfig:
-    replication_factor: 1        
-
-  storage_config:
-    aws:
-      s3: s3://ap-south-1/velero-bucket-104
-      bucketnames: velero-bucket-104
-      region: ap-south-1
-      access_key_id: your_access_key
-      secret_access_key: your_secret_key
-      s3forcepathstyle: false
-    boltdb_shipper:
-      active_index_directory: /data/loki/index
-      cache_location: /data/loki/boltdb-cache
-      shared_store: s3
-
+    replication_factor: 2  # Match your ingester replicas
   schemaConfig:
     configs:
-      - from: 2020-10-24
-        store: boltdb-shipper
-        object_store: s3
-        schema: v12
-        index:
-          prefix: index_
-          period: 24h
+    - from: "2024-01-01"  # Use a more recent date
+      index:
+        period: 24h
+        prefix: index_
+      object_store: filesystem
+      schema: v13  # v12 is deprecated, use v13
+      store: tsdb  # Use tsdb instead of boltdb-shipper
+  storage:
+    filesystem:
+      chunks_directory: /var/loki/chunks 
+      rules_directory: /var/loki/rules
+    type: filesystem
+  
+  # Add retention configuration
+  limits_config:
+    retention_period: 720h  # 30 days, adjust as needed
+  
+  compactor:
+    retention_enabled: true
+    working_directory: /var/loki/compactor
+    compaction_interval: 10m
 
-persistence:
-  enabled: true
-  storageClassName: gp2
-  size: 20Gi
-
+# Persistence specifically for ingesters
 ingester:
   replicas: 2
   maxUnavailable: 1
+  persistence:
+    enabled: true
+    size: 20Gi
+    storageClassName: gp2
+  # Add resource limits to prevent OOM
+  resources:
+    limits:
+      memory: 2Gi
+    requests:
+      memory: 1Gi
 
-distributor:
+# Add persistence for other components
+querier:
   replicas: 2
   maxUnavailable: 1
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClassName: gp2
 
-querier:
+# Compactor needs persistence too
+compactor:
+  enabled: true
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClassName: gp2
+
+distributor:
   replicas: 2
   maxUnavailable: 1
 

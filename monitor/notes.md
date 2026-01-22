@@ -816,3 +816,14 @@ sum by (endpoint) (rate(http_requests_total[5m]))
 **🎉 Congratulations! You now have full observability for your FastAPI application!**
 
 For questions or issues, check the troubleshooting section or review the component logs.
+
+**to view the logs in the loki pod port forward that pod and query like the pastedbelow**
+
+```bash  
+curl -G -s "http://localhost:3100/loki/api/v1/query_range" \
+  -H "X-Scope-OrgID: neo-dev" \
+  --data-urlencode 'query={service_name="fastapi-telemetry-app"}' \
+  --data-urlencode "start=$(($(date +%s) - 3600))000000000" \
+  --data-urlencode "end=$(($(date +%s) + 3600))000000000" \
+  --data-urlencode 'limit=5' | jq -r '.data.result[].values[][1]' | head -3 | jq -r '.body'
+  ```
