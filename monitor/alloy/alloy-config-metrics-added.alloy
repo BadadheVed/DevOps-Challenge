@@ -1,0 +1,140 @@
+logging {
+  level  = "info"
+  format = "logfmt"
+}
+
+otelcol.receiver.otlp "default" {
+  grpc {
+    endpoint = "0.0.0.0:4317"
+  }
+  http {
+    endpoint = "0.0.0.0:4318"
+  }
+  output {
+    metrics = [otelcol.processor.batch.default.input]
+    logs    = [otelcol.processor.batch.default.input]
+    traces  = [otelcol.processor.batch.default.input]
+  }
+}
+
+otelcol.processor.batch "default" {
+  timeout = "2s"
+  send_batch_size = 512
+  
+  output {
+    metrics = [otelcol.exporter.prometheus.default.input]
+    logs    = [otelcol.exporter.loki.default.input]
+    traces  = [otelcol.exporter.otlp.tempo.input]
+  }
+}
+
+prometheus.scrape "fastapi_prometheus_app" {
+  targets = discovery.kubernetes "pods".targets
+  
+  scrape_interval = "15s"
+  scrape_timeout  = "10s"
+  
+  relabel_configs = [
+    {
+      source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_scrape"]
+      action        = "keep"
+      regex         = "true"
+    },
+    {
+      source_labels = ["__meta_kubernetes_namespace"]
+      action        = "keep"
+      regex         = "default"
+    },
+    {
+      source_labels = ["__meta_kubernetes_pod_ip", "__meta_kubernetes_pod_annotation_prometheus_io_port"]
+      action        = "replace"
+      regex         = "([^;]+);(\\d+)"
+      replacement   = "$1:$2"
+      target_label  = "__address__"
+    },
+    {
+      source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_path"]
+      action        = "replace"
+      target_label  = "__metrics_path__"
+      regex         = "(.+)"
+    },
+    {
+      source_labels = ["__meta_kubernetes_pod_name"]
+      action        = "replace"
+      target_label  = "pod"
+    },
+    {
+      source_labels = ["__meta_kubernetes_namespace"]
+      action        = "replace"
+      target_label  = "namespace"
+    },
+    {
+      source_labels = ["__meta_kubernetes_pod_label_app"]
+      action        = "replace"
+      target_label  = "app"
+    },
+    {
+      source_labels = ["__meta_kubernetes_pod_container_name"]
+      action        = "replace"
+      target_label  = "container"
+    },
+  ]
+  
+  forward_to = [prometheus.remote_write.default.receiver]
+}
+
+otelcol.exporter.otlp "tempo" {
+  client {
+    endpoint = "tempo.monitoring.svc.cluster.local:4317"
+    tls {
+      insecure = true
+    }
+  }
+}
+
+otelcol.exporter.loki "default" {
+  forward_to = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+  endpoint {
+    url = "http://loki-gateway.monitoring.svc.cluster.local:80/loki/api/v1/push"
+    headers = {
+      "X-Scope-OrgID" = "neo-dev"
+    }
+  }
+}
+
+otelcol.exporter.prometheus "default" {
+  forward_to = [prometheus.remote_write.default.receiver]
+}
+
+prometheus.remote_write "default" {
+  endpoint {
+    url = "http://monitoring-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090/api/v1/write"
+  }
+}
+
+discovery.kubernetes "pods" {
+  role = "pod"
+}
+
+discovery.kubernetes "nodes" {
+  role = "node"
+}
+
+discovery.kubernetes "services" {
+  role = "service"
+}
+
+discovery.kubernetes "endpoints" {
+  role = "endpoints"
+}
+
+discovery.kubernetes "endpointslices" {
+  role = "endpointslice"
+}
+
+discovery.kubernetes "ingresses" {
+  role = "ingress"
+}

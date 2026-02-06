@@ -19,6 +19,7 @@ aws eks associate-access-policy \
 ```
 
 ## Tag the public subnets in VPC
+
 ```json
 aws ec2 create-tags \
   --resources <public-subnet-1> <public-subnet-2> \
@@ -28,11 +29,13 @@ aws ec2 create-tags \
 ```
 
 ## The after that apply the service
+
 ```json
 kubectl apply -f svc.yml
 ```
 
-## Commands to install prometheus and the grafana 
+## Commands to install prometheus and the grafana
+
 ```json
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo update
@@ -41,12 +44,13 @@ kubectl create namespace monitoring
 
 helm install monitoring prometheus-community/kube-prometheus-stack \
   -n monitoring
-  ```
+```
 
-  ## After this create a ServiceMonitor
-  ```json
-  kubectl apply -f svcmonitor.yml
-  ```
+## After this create a ServiceMonitor
+
+```json
+kubectl apply -f svcmonitor.yml
+```
 
 # Then Get the grafana password/credentials
 
@@ -56,11 +60,13 @@ kubectl get secret -n monitoring monitoring-grafana \
 ```
 
 # Then port forward the grafana to your local machine
+
 ```json
 kubectl port-forward -n monitoring svc/monitoring-grafana 3000:80
 ```
 
 # Then open the grafana in your browser
+
 http://localhost:3000
 
 ## To Install the telemetry collector
@@ -72,12 +78,14 @@ helm repo update
 ```
 
 ## After this install the telemetry collector
+
 ```json
 helm install otel-collector open-telemetry/opentelemetry-collector \
   -n monitoring -f otel-values.yml
 ```
 
-## To pass the secrets in the yaml from the k8sin runtime use the 
+## To pass the secrets in the yaml from the k8sin runtime use the
+
 ```json
 kubectl create secret generic loki-s3-credentials \
   -n monitoring \
@@ -99,6 +107,7 @@ extraEnvFrom:
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.9.6/deploy/static/provider/aws/deploy.yaml
 
 ```
+
 **After Launching the ingress controller patch t with the command**
 
 ```yml
@@ -113,7 +122,18 @@ kubectl patch svc ingress-nginx-controller -n ingress-nginx -p '{
 ```
 
 **Command to install cert manager**
+
 ```json
 kubectl apply -f https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.yaml
 ```
 
+## To update the alloy config here
+
+- Run this command
+
+```bash
+kubectl create configmap alloy \
+  --from-file=config.alloy=alloy-config.alloy \
+  --dry-run=client -o yaml \
+  -n monitoring | kubectl apply -f -
+```

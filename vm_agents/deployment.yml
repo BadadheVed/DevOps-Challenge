@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vm-agents-deploy
+  namespace: default
+spec:
+  replicas: 10
+  selector:
+    matchLabels:
+      app: vm-agents
+  template:
+    metadata:
+      labels:
+        app: vm-agents
+    spec:
+      containers:
+      - name: vm-agent
+        image: ved104/vm-agents:latest
+        ports:
+        - containerPort: 8000
+          name: http
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi

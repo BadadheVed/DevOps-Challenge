@@ -1,0 +1,23 @@
+{
+  "mcpServers": {
+    "grafana": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "-e",
+        "GRAFANA_URL",
+        "-e",
+        "GRAFANA_API_KEY",
+        "mcp/grafana",
+        "-t",
+        "stdio"
+      ],
+      "env": {
+        "GRAFANA_URL": "https://grafana.vedcsn.com",
+        "GRAFANA_API_KEY": "glsa_Cf7SLTWhEQoJW2TsmOBLeiz5yK75BvQQ_3d7a8f85"
+      }
+    }
+  }
+}

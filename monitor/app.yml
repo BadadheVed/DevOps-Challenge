@@ -12,18 +12,20 @@ spec:
     metadata:
       labels:
         app: prometheus-app
-      annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "8000"
-        prometheus.io/path: "/metrics"
     spec:
       containers:
       - name: prometheus-app
-        image: ved104/prometheus-app:latest
+        image: ved104/prom-functions:latest
         ports:
         - containerPort: 8000
           name: http
         env:
+        - name: PUSHGATEWAY_URL
+          value: "http://pushgateway-prometheus-pushgateway.monitoring.svc.cluster.local:9091"
+        - name: PUSH_INTERVAL
+          value: "15"
+        - name: JOB_NAME
+          value: "prometheus-functions"
         - name: ALLOY_ENDPOINT
           value: "alloy.monitoring.svc.cluster.local:4317"
         - name: OTEL_SERVICE_NAME

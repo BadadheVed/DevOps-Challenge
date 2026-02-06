@@ -1,0 +1,70 @@
+---
+# 1. ServiceAccount
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: n8n-monitor-sa
+  namespace: n8n
+---
+# 2. Create ClusterRole with read permissions
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: n8n-cluster-reader
+rules:
+- apiGroups: [""]
+  resources:
+    - nodes
+    - pods
+    - services
+    - endpoints
+    - namespaces
+  verbs:
+    - get
+    - list
+    - watch
+- apiGroups: ["apps"]
+  resources:
+    - deployments
+    - replicasets
+    - statefulsets
+  verbs:
+    - get
+    - list
+    - watch
+- apiGroups: [""]
+  resources:
+    - events
+  verbs:
+    - get
+    - list
+    - watch
+---
+# 3. Bind ClusterRole to ServiceAccount
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: n8n-monitor-cluster-reader
+subjects:
+- kind: ServiceAccount
+  name: n8n-monitor-sa
+  namespace: n8n
+roleRef:
+  kind: ClusterRole
+  name: n8n-cluster-reader  # Reference our created ClusterRole
+  apiGroup: rbac.authorization.k8s.io
+---
+# 4. Namespace-scoped events access (optional if cluster-wide is enough)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: n8n-events-reader
+  namespace: n8n
+subjects:
+- kind: ServiceAccount
+  name: n8n-monitor-sa
+  namespace: n8n
+roleRef:
+  kind: Role
+  name: view
+  apiGroup: rbac.authorization.k8s.io

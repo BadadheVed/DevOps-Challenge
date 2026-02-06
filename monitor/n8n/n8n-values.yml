@@ -1,0 +1,51 @@
+# Main pod configuration
+main:
+  # Resources (CRITICAL - prevents OOMKill)
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+
+  # Liveness probe - extended timeouts
+  livenessProbe:
+    httpGet:
+      path: /healthz
+      port: http
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
+
+  # Readiness probe - extended timeouts
+  readinessProbe:
+    httpGet:
+      path: /healthz/readiness
+      port: http
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
+
+  # Persistence with your existing PVC
+  persistence:
+    enabled: true
+    existingClaim: "n8n-data-pvc"
+    mountPath: "/home/node/.n8n"
+
+  # Environment variables
+  extraEnvVars:
+    N8N_TASK_RUNNERS_MODE: "external"
+    DB_SQLITE_POOL_SIZE: "3"
+    N8N_RUNNERS_ENABLED: "true"
+    N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+    N8N_GIT_NODE_DISABLE_BARE_REPOS: "true"
+
+# Disable worker and webhook pods if you don't need them
+# worker:
+#   enabled: false
+
+# webhook:
+#   enabled: false

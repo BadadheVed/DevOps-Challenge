@@ -1,0 +1,14 @@
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: limited-pool
+spec:
+  template:
+    spec:
+      nodeClassRef:
+        group: eks.amazonaws.com
+        kind: NodeClass
+        name: default
+  limits:
+    cpu: "8"      # For example, limit total cluster CPU to 8 cores
+    memory: 16Gi

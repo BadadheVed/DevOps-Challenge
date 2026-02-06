@@ -1,0 +1,43 @@
+# Ingress configuration values for NGINX Ingress Controller
+ingress:
+  enabled: true
+  className: nginx
+  
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/server-snippet: |
+      location /metrics {
+        deny all;
+        default_type application/json;
+        return 404;
+      }
+  
+  # TLS configuration
+  tls:
+    enabled: true
+    secretName: vedcsn-tls
+    hosts:
+      - backend.vedcsn.com
+      - nginx.vedcsn.com
+  
+  # Ingress rules
+  hosts:
+    - host: backend.vedcsn.com
+      paths:
+        - path: /
+          pathType: Prefix
+          service:
+            name: backend-service
+            port: 80
+    
+    - host: nginx.vedcsn.com
+      paths:
+        - path: /
+          pathType: Prefix
+          service:
+            name: nginx-service
+            port: 80
+
+# Namespace configuration
+namespace: default

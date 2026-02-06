@@ -1,0 +1,26 @@
+# grafana-smtp-values.yaml
+grafana:
+  smtp:
+    existingSecret: "grafana-smtp-secret"
+    userKey: "user"
+    passwordKey: "smtp-password"
+  
+  persistence:
+    enabled: true
+    type: pvc
+    storageClassName: ebs-auto-mode
+    accessModes:
+      - ReadWriteOnce
+    size: 5Gi
+
+  
+  grafana.ini:
+    smtp:
+      enabled: true
+      host: smtp.gmail.com:587
+      from_address: badadheved4@gmail.com
+      from_name: Grafana Alerts
+    server:
+      domain: grafana.vedcsn.com
+      root_url: "%(protocol)s://%(domain)s/"
+      serve_from_sub_path: false

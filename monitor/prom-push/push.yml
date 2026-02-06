@@ -1,0 +1,56 @@
+runAsStatefulSet: false
+replicaCount: 1
+
+image:
+  repository: prom/pushgateway
+  tag: v1.11.2
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 9091
+
+serviceMonitor:
+  enabled: false
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+extraArgs:
+  - --web.enable-lifecycle
+  - --web.enable-admin-api
+
+persistence:
+  enabled: true
+
+persistentVolume:
+  ## If true, pushgateway will create/use a Persistent Volume Claim
+  enabled: true
+  
+  ## pushgateway data Persistent Volume access modes
+  accessModes:
+    - ReadWriteOnce
+  
+  ## pushgateway data Persistent Volume mount root path
+  mountPath: /data
+  
+  ## pushgateway data Persistent Volume size
+  size: 2Gi
+  
+  ## pushgateway data Persistent Volume Storage Class
+  storageClass: ebs-auto-mode
+  
+  ## pushgateway data Persistent Volume Claim annotations
+  annotations: {}
+  
+  ## pushgateway data Persistent Volume existing claim name
+  ## If defined, PVC must be created manually before volume will be bound
+  existingClaim: ""
+  
+  ## Subdirectory of pushgateway data Persistent Volume to mount
+  subPath: ""

@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vmagent-config
+  namespace: monitoring
+data:
+  vmagent.yml: |
+    global:
+      scrape_interval: 15s
+
+  stream-aggr.yml: |
+    - match: 'vm_agent_calls_total'
+      interval: 30s
+      keep_metric_names: true
+      by: [namespace, status]
+      outputs: [total]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vmagent
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vmagent
+  template:
+    metadata:
+      labels:
+        app: vmagent
+    spec:
+      containers:
+      - name: vmagent
+        image: victoriametrics/vmagent:latest
+        args:
+        - -remoteWrite.url=http://monitoring-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090/api/v1/write
+        - -httpListenAddr=:8429
+        - -streamAggr.config=/config/stream-aggr.yml
+        - -streamAggr.keepInput=false
+        - -streamAggr.dedupInterval=30s
+        ports:
+        - containerPort: 8429
+          name: http
+        volumeMounts:
+        - name: config
+          mountPath: /config
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      volumes:
+      - name: config
+        configMap:
+          name: vmagent-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vmagent
+  namespace: monitoring
+spec:
+  selector:
+    app: vmagent
+  ports:
+  - port: 8429
+    targetPort: 8429
+    name: http
+  type: ClusterIP
