@@ -5,44 +5,19 @@ metadata:
   namespace: default
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
-    # nginx.ingress.kubernetes.io/server-snippet: |
-    #   location /metrics {
-    #     deny all;
-    #     default_type application/json;
-    #     return 404;
-    #   }
+    nginx.ingress.kubernetes.io/server-snippet: |
+      location /metrics {
+        deny all;
+        return 403;
+      }
     cert-manager.io/cluster-issuer: letsencrypt-prod  
 spec:
   ingressClassName: nginx
   tls:  
   - hosts:
-    - backend.vedcsn.com
-    - nginx.vedcsn.com
     - workers.vedcsn.com
     secretName: vedcsn-tls
   rules:
-    - host: backend.vedcsn.com
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: backend-service
-                port:
-                  number: 80
-    
-    - host: nginx.vedcsn.com
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: nginx-service
-                port:
-                  number: 80
-
     - host: workers.vedcsn.com
       http:
         paths:
@@ -53,3 +28,14 @@ spec:
                 name: vm-agents-service
                 port:
                   number: 8000
+    - hosts: shop.vedcsn.com
+      http:
+        paths:  
+          paths:
+            - path: /
+              pathType: Prefix
+              backend:
+                service:
+                  name: vm-agents-service
+                  port:
+                    number: 8000

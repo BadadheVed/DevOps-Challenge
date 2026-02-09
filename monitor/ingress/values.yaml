@@ -1,0 +1,109 @@
+# Official nginx-ingress Helm Chart Values
+# NGINX v1.27.1 configuration
+
+controller:
+  allowSnippetAnnotations: true        # ← Enables snippet annotations at controller level
+  config:
+    annotations-risk-level: "Critical" # ← Required for newer versions (v1.11+)
+    allow-snippet-annotations: "true"  # ← ConfigMap setting
+    use-forwarded-headers: "true"
+    compute-full-forwarded-for: "true"
+    enable-real-ip: "true"
+  image:
+    repository: registry.k8s.io/ingress-nginx/controller
+    tag: v1.27.1
+    pullPolicy: IfNotPresent
+  
+  replicaCount: 1
+  
+  service:
+    type: LoadBalancer
+    externalTrafficPolicy: Local
+  
+  resources:
+    requests:
+      cpu: 100m
+      memory: 90Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      add:
+        - NET_BIND_SERVICE
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+    runAsNonRoot: true
+    runAsUser: 101
+    runAsGroup: 82
+  
+  terminationGracePeriodSeconds: 300
+  
+
+serviceAccount:
+  create: true
+
+rbac:
+  create: true
+
+admissionWebhooks:
+  enabled: true
+  patch:
+    enabled: true
+    image:
+      repository: registry.k8s.io/ingress-nginx/kube-webhook-certgen
+      tag: v1.6.0
+
+ingressClass:
+  enabled: true
+  default: true
+
+# Your application ingress configuration
+ingress:
+  enabled: true
+  ingressClassName: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      location /metrics {
+        deny all;
+        return 403;
+      }
+  tls:
+    - secretName: vedcsn-tls
+      hosts:
+        - backend.vedcsn.com
+        - nginx.vedcsn.com
+        - workers.vedcsn.com
+  hosts:
+    - host: backend.vedcsn.com
+      paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: backend-service
+              port:
+                number: 80
+    - host: nginx.vedcsn.com
+      paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: nginx-service
+              port:
+                number: 80
+    - host: workers.vedcsn.com
+      paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: vm-agents-service
+              port:
+                number: 8000

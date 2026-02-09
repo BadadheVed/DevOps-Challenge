@@ -1,0 +1,43 @@
+# VictoriaMetrics vmagent Helm Chart Values
+# Aggregates metrics from 10 vm_agents pods before sending to Prometheus
+
+# PREREQUISITE: Apply the ConfigMap first
+# kubectl apply -f vmagent-stream-aggr-configmap.yml
+
+# Single replica for aggregation
+replicaCount: 1
+
+# Pod name
+podNameOverride: victoria-agent
+
+# Remote write configuration (required)
+remoteWrite:
+  - url: http://monitoring-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090/api/v1/write
+
+# Resource limits
+resources:
+  requests:
+    memory: "128Mi"
+    cpu: "100m"
+  limits:
+    memory: "512Mi"
+    cpu: "500m"
+
+# Mount the stream aggregation config (references vmagent-stream-aggr ConfigMap)
+extraVolumes:
+  - name: stream-aggr-config
+    configMap:
+      name: vmagent-stream-aggr
+
+extraVolumeMounts:
+  - name: stream-aggr-config
+    mountPath: /config/stream-aggr.yaml
+    subPath: stream-aggr.yaml
+
+# Extra arguments for vmagent
+extraArgs:
+  envflag.enable: "true"
+  streamAggr.config: "/config/stream-aggr.yaml"
+  streamAggr.keepInput: "false"
+  streamAggr.dedupInterval: "30s"
+

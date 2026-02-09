@@ -1,4 +1,3 @@
-# Ingress configuration values for NGINX Ingress Controller
 ingress:
   enabled: true
   className: nginx
@@ -13,31 +12,19 @@ ingress:
         return 404;
       }
   
-  # TLS configuration
   tls:
     enabled: true
     secretName: vedcsn-tls
     hosts:
-      - backend.vedcsn.com
-      - nginx.vedcsn.com
+      - workers.vedcsn.com
   
-  # Ingress rules
   hosts:
-    - host: backend.vedcsn.com
+    - host: workers.vedcsn.com
       paths:
         - path: /
           pathType: Prefix
           service:
-            name: backend-service
-            port: 80
-    
-    - host: nginx.vedcsn.com
-      paths:
-        - path: /
-          pathType: Prefix
-          service:
-            name: nginx-service
-            port: 80
+            name: vm-agents-service
+            port: 8000
 
-# Namespace configuration
 namespace: default

@@ -19,7 +19,7 @@ COPY --from=builder /usr/local/lib/python3.14/site-packages /usr/local/lib/pytho
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy app code
-COPY main.py .
+COPY main.py metrics.py ./
 
 # Health check - check /metrics endpoint
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \

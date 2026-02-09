@@ -8,8 +8,8 @@ openssl req -new -key user.key -out user.csr -subj "/CN=user"
 openssl x509 -req -in user.csr -signkey user.key -out user.crt
 ```
 
-## To get the Certificate For Group run
-
+## To get the Certificate For Group 
+- Run this command
 ```json
 openssl genrsa -out group.key 2048
 openssl req -new -key group.key -out group.csr -subj "/CN=group"
@@ -17,7 +17,7 @@ openssl x509 -req -in group.csr -signkey group.key -out group.crt
 ```
 
 ## To Sign Using the K8s CA
-
+- Run this command
 ```json
 
 docker exec kind-control-plane cat /etc/kubernetes/pki/ca.crt > ca.crt

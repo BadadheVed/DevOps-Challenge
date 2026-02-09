@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vmagent-stream-aggr
+  namespace: monitoring
+data:
+  stream-aggr.yaml: |
+    - match: 'vm_agent_calls_total'
+      interval: 30s
+      keep_metric_names: true
+      by: [namespace, status]
+      outputs: [total]
