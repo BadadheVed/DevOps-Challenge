@@ -1,0 +1,65 @@
+# Large App Configuration
+# Use this for apps with higher resource requirements and significant storage needs
+#
+# Deploy with:
+#   helm install my-large-app ./vm-agents -f values-large.yaml
+#
+# Or combine with custom values:
+#   helm install my-app ./vm-agents -f values.yaml -f values-large.yaml
+
+# Application replicas
+replicaCount: 5
+
+# Pod Labels - customize per app
+podLabels:
+  app: vm-agents-large
+  tier: production
+
+# Resource Limits - Optimized for large workloads
+resources:
+  limits:
+    cpu: 1000m       # 1 CPU core
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+# Persistent Storage - Large configuration
+persistence:
+  enabled: true
+  storageClass: "gp3"
+  size: 20Gi       # 20GB storage for large apps
+  mountPath: /data
+  accessModes:
+    - ReadWriteOnce
+
+# Ingress - Customize hostname per app
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/server-snippet: |
+      location /metrics {
+        deny all;
+        return 403;
+      }
+  hosts:
+    - host: large-app.vedcsn.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: large-app-vedcsn-tls
+      hosts:
+        - large-app.vedcsn.com
+
+# Autoscaling - Recommended for large apps
+autoscaling:
+  enabled: true
+  minReplicas: 5
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 75

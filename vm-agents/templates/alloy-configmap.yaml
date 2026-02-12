@@ -1,0 +1,223 @@
+{{- if .Values.alloy.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "vm-agents.fullname" . }}-alloy
+  namespace: {{ .Values.alloy.namespace }}
+  labels:
+    {{- include "vm-agents.labels" . | nindent 4 }}
+data:
+  config.alloy: |
+    // ============================================================================
+    // Logging Configuration
+    // ============================================================================
+    logging {
+      level  = "{{ .Values.alloy.logging.level }}"
+      format = "{{ .Values.alloy.logging.format }}"
+    }
+
+    // ============================================================================
+    // Kubernetes Pod Discovery
+    // Discovers pods in specified namespaces or on the current node
+    // ============================================================================
+    discovery.kubernetes "pods" {
+      role = "pod"
+      {{- if .Values.alloy.discovery.useNodeSelector }}
+      // Node-local discovery: Only discover pods running on this node
+      // Useful for DaemonSet deployments
+      selectors {
+        role = "pod"
+        field = "spec.nodeName=" + sys.env("HOSTNAME")
+      }
+      {{- else }}
+      // Namespace-based discovery: Discover pods across specified namespaces
+      namespaces {
+        names = {{ .Values.alloy.discovery.namespaces | toJson }}
+      }
+      {{- end }}
+    }
+
+    // ============================================================================
+    // Relabeling Rules for Metrics Scraping
+    // ANNOTATION-DRIVEN: Pods control their own scraping via annotations
+    // No hardcoded pod names or labels - fully dynamic discovery
+    // ============================================================================
+    discovery.relabel "metrics_pods" {
+      targets = discovery.kubernetes.pods.targets
+
+      // --------------------------------------------------------------------
+      // FILTER: Keep only pods with prometheus.io/scrape annotation
+      // This is ANNOTATION-DRIVEN - no hardcoded pod names!
+      // Any pod can opt-in to scraping by adding: prometheus.io/scrape: "true"
+      // --------------------------------------------------------------------
+      rule {
+        source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_scrape"]
+        action        = "keep"
+        regex         = "true"
+      }
+
+      // --------------------------------------------------------------------
+      // EXTRACT: Core Kubernetes metadata as labels
+      // --------------------------------------------------------------------
+
+      // Extract namespace from pod metadata
+      rule {
+        source_labels = ["__meta_kubernetes_namespace"]
+        action        = "replace"
+        target_label  = "namespace"
+      }
+
+      // Extract pod name from pod metadata
+      rule {
+        source_labels = ["__meta_kubernetes_pod_name"]
+        action        = "replace"
+        target_label  = "pod"
+      }
+
+      // Extract container name from pod metadata
+      rule {
+        source_labels = ["__meta_kubernetes_pod_container_name"]
+        action        = "replace"
+        target_label  = "container"
+      }
+
+      // Set job label as namespace/container for metric grouping
+      rule {
+        source_labels = ["__meta_kubernetes_namespace", "__meta_kubernetes_pod_container_name"]
+        separator     = "/"
+        action        = "replace"
+        replacement   = "$1"
+        target_label  = "job"
+      }
+
+      // --------------------------------------------------------------------
+      // ANNOTATION-DRIVEN: Map all pod labels and annotations as labels
+      // These are available to the pipeline but can be filtered later
+      // --------------------------------------------------------------------
+
+      // Make all labels on the pod available to the pipeline as labels
+      rule {
+        action = "labelmap"
+        regex  = "__meta_kubernetes_pod_label_(.+)"
+      }
+
+      // Make all annotations on the pod available to the pipeline as labels
+      // This enables annotation-driven configuration
+      rule {
+        action = "labelmap"
+        regex  = "__meta_kubernetes_pod_annotation_(.+)"
+      }
+
+      // --------------------------------------------------------------------
+      // STANDARD LABELS: Extract common Kubernetes labels
+      // --------------------------------------------------------------------
+
+      // Extract app.kubernetes.io/name label if present (standard Kubernetes label)
+      rule {
+        source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_name"]
+        regex         = "(.+)"
+        target_label  = "app_kubernetes_io_name"
+      }
+
+      // Allow custom job override via annotation k8s.grafana.com/job
+      rule {
+        source_labels = ["__meta_kubernetes_pod_annotation_k8s_grafana_com_job"]
+        regex         = "(.+)"
+        target_label  = "job"
+      }
+
+      // --------------------------------------------------------------------
+      // SCRAPING: Configure scrape endpoint details via annotations
+      // --------------------------------------------------------------------
+
+      // Set scrape address from pod IP and port annotation
+      // Default port from container, override via prometheus.io/port annotation
+      rule {
+        source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_port"]
+        action        = "replace"
+        target_label  = "__meta_kubernetes_pod_container_port_number"
+      }
+
+      rule {
+        source_labels = ["__meta_kubernetes_pod_ip", "__meta_kubernetes_pod_container_port_number"]
+        separator     = ":"
+        action        = "replace"
+        target_label  = "__address__"
+      }
+
+      // Set metrics path from annotation or use default
+      // Override via prometheus.io/path annotation (default: /metrics)
+      rule {
+        source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_path"]
+        action        = "replace"
+        target_label  = "__metrics_path__"
+        regex         = "(.+)"
+      }
+
+      rule {
+        action       = "replace"
+        target_label = "__metrics_path__"
+        replacement  = "{{ .Values.alloy.metricsPath }}"
+      }
+    }
+
+    // ============================================================================
+    // Prometheus Scraping Configuration
+    // Scrapes all pods that opted in via prometheus.io/scrape annotation
+    // ============================================================================
+    prometheus.scrape "metrics" {
+      targets         = discovery.relabel.metrics_pods.output
+      scrape_interval = "{{ .Values.alloy.scrape.interval }}"
+      scrape_timeout  = "{{ .Values.alloy.scrape.timeout }}"
+
+      {{- if .Values.alloy.clustering.enabled }}
+      clustering {
+        enabled = true
+      }
+      {{- end }}
+
+      forward_to = [prometheus.remote_write.vmagent.receiver]
+    }
+
+    // ============================================================================
+    // Prometheus Remote Write
+    // Sends scraped metrics to Victoria Metrics agent
+    // No authentication - simple internal cluster communication
+    // ============================================================================
+    prometheus.remote_write "vmagent" {
+      endpoint {
+        url = "{{ .Values.alloy.exporters.vmagent.url }}"
+      }
+      {{- if .Values.alloy.exporters.vmagent.externalLabels }}
+      external_labels = {
+        {{- range $key, $value := .Values.alloy.exporters.vmagent.externalLabels }}
+        "{{ $key }}" = "{{ $value }}",
+        {{- end }}
+      }
+      {{- end }}
+    }
+
+    // ============================================================================
+    // Additional Kubernetes Discovery
+    // For comprehensive cluster monitoring (optional)
+    // ============================================================================
+    discovery.kubernetes "nodes" {
+      role = "node"
+    }
+
+    discovery.kubernetes "services" {
+      role = "service"
+    }
+
+    discovery.kubernetes "endpoints" {
+      role = "endpoints"
+    }
+
+    discovery.kubernetes "endpointslices" {
+      role = "endpointslice"
+    }
+
+    discovery.kubernetes "ingresses" {
+      role = "ingress"
+    }
+{{- end }}

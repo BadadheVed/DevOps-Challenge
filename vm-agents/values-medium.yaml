@@ -1,0 +1,63 @@
+# Medium App Configuration (Default)
+# Use this for apps with moderate resource requirements
+#
+# Deploy with:
+#   helm install my-medium-app ./vm-agents -f values-medium.yaml
+#
+# Or combine with custom values:
+#   helm install my-app ./vm-agents -f values.yaml -f values-medium.yaml
+
+# Application replicas
+replicaCount: 3
+
+# Pod Labels - customize per app
+podLabels:
+  app: vm-agents-medium
+  tier: staging
+
+# Resource Limits - Optimized for medium workloads
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+# Persistent Storage - Medium configuration
+persistence:
+  enabled: true
+  storageClass: "gp3"
+  size: 10Gi       # 10GB storage for medium apps (default)
+  mountPath: /data
+  accessModes:
+    - ReadWriteOnce
+
+# Ingress - Customize hostname per app
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/server-snippet: |
+      location /metrics {
+        deny all;
+        return 403;
+      }
+  hosts:
+    - host: medium-app.vedcsn.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: medium-app-vedcsn-tls
+      hosts:
+        - medium-app.vedcsn.com
+
+# Autoscaling - Optional for medium apps
+autoscaling:
+  enabled: false
+  minReplicas: 3
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 75

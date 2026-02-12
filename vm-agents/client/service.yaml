@@ -1,0 +1,26 @@
+# Source: vm-agents/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: vm-agents
+  labels:
+    helm.sh/chart: vm-agents-1.0.0
+    app.kubernetes.io/name: vm-agents
+    app.kubernetes.io/instance: vm-agents
+    app: vm-agents
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    prometheus.io/port: "8000"
+    prometheus.io/scrape: "true"
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8000
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: vm-agents
+    app.kubernetes.io/instance: vm-agents
+    app: vm-agents

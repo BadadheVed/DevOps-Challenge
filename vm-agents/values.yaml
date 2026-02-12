@@ -1,0 +1,282 @@
+# VM-Agents Helm Chart Values
+#
+# This Helm chart can be deployed multiple times with different configurations
+# for different apps by using separate values files or --set overrides.
+#
+# Example deployments:
+#   helm install app1 ./vm-agents -f values-small.yaml    # 5Gi PVC, lower resources
+#   helm install app2 ./vm-agents -f values-medium.yaml   # 10Gi PVC, medium resources
+#   helm install app3 ./vm-agents -f values-large.yaml    # 20Gi PVC, higher resources
+#
+# Or use --set to override specific values:
+#   helm install my-app ./vm-agents --set persistence.size=5Gi --set resources.limits.memory=256Mi
+
+# Application Configuration
+replicaCount: 3
+
+image:
+  repository: ved104/aggr-functions
+  pullPolicy: Always
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# Service Account
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  name: ""
+
+# Pod Annotations (for Prometheus discovery)
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8000"
+  prometheus.io/path: "/metrics"
+
+# Pod Labels
+podLabels:
+  app: vm-agents
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
+
+# Application Environment Variables
+env:
+  pushgatewayUrl: "http://pushgateway-prometheus-pushgateway.monitoring.svc.cluster.local:9091"
+  pushInterval: "15"
+  jobName: "prometheus-functions"
+
+# Service Configuration
+service:
+  type: ClusterIP
+  port: 8000
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8000"
+
+# Ingress Configuration
+ingress:
+  enabled: true
+  certIssuer: "letsencrypt-prod"
+  proxyBodySize: "20m"
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: "/"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/server-snippet: |
+      location /metrics {
+        deny all;
+        return 403;
+      }
+  hosts:
+    - host: "backend.vedcsn.com"
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: backend-vedcsn-tls
+      hosts:
+        - "backend.vedcsn.com"
+      
+
+# Resource Limits and Requests
+# Customize these based on your application's needs:
+# - Small app: 100m CPU / 128Mi memory (requests), 200m CPU / 256Mi memory (limits)
+# - Medium app: 250m CPU / 256Mi memory (requests), 500m CPU / 512Mi memory (limits)
+# - Large app: 500m CPU / 512Mi memory (requests), 1000m CPU / 1Gi memory (limits)
+
+app-persistence:
+  enabled: true
+  size: 5Gi
+  storageClass: "gp3"
+  mountPath: /app/data
+  subPath: ""
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+# Liveness and Readiness Probes
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  initialDelaySeconds: 10
+  periodSeconds: 5
+
+# Autoscaling
+autoscaling:
+  enabled: false
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# Alloy Configuration (Prometheus metrics only)
+# Note: ServiceMonitor not needed - Alloy handles pod discovery and scraping directly
+alloy:
+  enabled: true
+  namespace: monitoring
+  clusterName: "neo-k8s"
+  logging:
+    level: "info"
+    format: "logfmt"
+  discovery:
+    namespaces:
+      - "default"
+      - "monitoring"
+    podLabelSelector: "vm-agents-deploy"
+    useNodeSelector: false  # Set to true for DaemonSet-style per-node discovery
+  scrape:
+    interval: "15s"
+    timeout: "10s"
+  metricsPath: "/metrics"
+  clustering:
+    enabled: true
+  # Exporters configuration (Prometheus only - no Loki/Tempo)
+  exporters:
+    vmagent:
+      enabled: true
+      url: "http://vmagent.monitoring.svc.cluster.local:8429/api/v1/write"
+      basicAuth:
+        enabled: false
+        secretRef: "vmagent-auth"
+      tlsConfig:
+        enabled: false
+        insecureSkipVerify: false
+      externalLabels:
+        cluster: "neo-k8s"
+        environment: "production"
+  # Remote configuration for fleet management (optional)
+  remotecfg:
+    enabled: false
+    url: "https://fleet-management-prod.grafana.net"
+    idEnvVar: "GCLOUD_FM_COLLECTOR_ID"
+    pollFrequency: "5m"
+    basicAuth:
+      enabled: false
+      secretRef: "alloy-remotecfg"
+  # Kubernetes secrets to reference in Alloy config
+  secrets:
+    enabled: false
+    list: []
+    # Example:
+    # - name: vmagent_auth
+    #   secretName: vmagent-credentials
+    #   namespace: monitoring
+
+# Persistent Storage Configuration (AWS EBS CSI)
+# Enable persistence to add a PersistentVolumeClaim to the deployment
+# Customize the size based on your application's storage requirements:
+# - Small app: 5Gi (for minimal data storage)
+# - Medium app: 10Gi (default, for moderate data storage)
+# - Large app: 20Gi or more (for heavy data storage)
+#
+# Example: Deploy with 5Gi storage
+#   helm install my-app ./vm-agents --set persistence.enabled=true --set persistence.size=5Gi
+persistence:
+  enabled: true
+  # StorageClass to use for PVC (use existing AWS EBS storage class)
+  # Common AWS options: gp3 (recommended), gp2, io1, io2, st1, sc1
+  storageClass: "gp3"
+  # PVC access modes
+  accessModes:
+    - ReadWriteOnce
+  # Storage size - customize per app deployment
+  # Examples: 5Gi, 10Gi, 20Gi, 50Gi
+  size: 5Gi
+  # Mount path in container
+  mountPath: /data
+  # Optional subPath
+  subPath: ""
+  # Optional annotations for PVC
+  annotations: {}
+  # Optional selector for PV
+  selector: {}
+
+# AWS EBS StorageClass Configuration
+# Note: EBS CSI driver must be installed in the cluster first
+# See: https://docs.aws.amazon.com/eks/latest/userguide/ebs-csi.html
+storageClass:
+  # Create a new StorageClass (set to false to use existing one)
+  create: false
+  # StorageClass name
+  name: "vm-agents-gp3"
+  # AWS EBS CSI driver provisioner
+  provisioner: "ebs.csi.eks.amazonaws.com"
+  # StorageClass parameters for AWS EBS
+  parameters:
+    type: gp3              # EBS volume type (gp3, gp2, io1, io2, st1, sc1)
+    fsType: ext4           # Filesystem type
+    encrypted: "true"      # Enable encryption at rest
+    # Optional: Specify IOPS for io1/io2 volumes
+    # iops: "3000"
+    # Optional: Specify throughput for gp3 volumes (125-1000 MiB/s)
+    # throughput: "125"
+  # Allow volume expansion
+  allowVolumeExpansion: true
+  # Reclaim policy (Delete or Retain)
+  reclaimPolicy: Delete
+  # Volume binding mode (Immediate or WaitForFirstConsumer)
+  volumeBindingMode: WaitForFirstConsumer
+  # Optional mount options
+  mountOptions: []
+  # Optional annotations
+  annotations: {}
+
+# Node Selection
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Additional volumes and volumeMounts
+volumes: []
+
+volumeMounts: []
+
+# Network Policy (Optional - not included by default)
+networkPolicy:
+  enabled: false
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: monitoring
+      ports:
+        - protocol: TCP
+          port: 8000
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8000

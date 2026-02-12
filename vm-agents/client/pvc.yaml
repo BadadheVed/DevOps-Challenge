@@ -1,0 +1,19 @@
+# Source: vm-agents/templates/pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vm-agents
+  labels:
+    helm.sh/chart: vm-agents-1.0.0
+    app.kubernetes.io/name: vm-agents
+    app.kubernetes.io/instance: vm-agents
+    app: vm-agents
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: "5Gi"
+  storageClassName: "gp3"

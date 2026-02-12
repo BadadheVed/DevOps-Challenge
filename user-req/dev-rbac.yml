@@ -1,0 +1,69 @@
+# Role: Defines permissions within the dev namespace
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: dev
+  name: dev-user-role
+rules:
+  # Allow all operations on pods
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "pods/status"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  
+  # Allow all operations on deployments
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "daemonsets", "statefulsets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  
+  # Allow all operations on services
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  
+  # Allow operations on configmaps and secrets
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  
+  # Allow operations on ingress
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  
+  # Allow operations on persistent volume claims
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+---
+# RoleBinding: Binds the Role to a specific user
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: dev-user-rolebinding
+  namespace: dev
+subjects:
+  # User: ved, Organization: dev-team
+  - kind: User
+    name: ved
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: dev-user-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# How to apply these configurations:
+# 1. First, create the dev namespace if it doesn't exist:
+#    kubectl create namespace dev
+#
+# 2. Apply this YAML file:
+#    kubectl apply -f dev-rbac.yaml
+#
+# 3. Verify the Role was created:
+#    kubectl get role -n dev
+#
+# 4. Verify the RoleBinding was created:
+#    kubectl get rolebinding -n dev
+#
+# Note: User "ved" is assigned to organization "dev-team"

@@ -1,0 +1,16 @@
+{{- $appPersistence := index .Values "app-persistence" -}}
+{{- if $appPersistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "vm-agents.fullname" . }}
+  labels:
+    {{- include "vm-agents.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ $appPersistence.size | quote }}
+  storageClassName: {{ $appPersistence.storageClass | quote }}
+{{- end }}

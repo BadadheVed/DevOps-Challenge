@@ -1,0 +1,34 @@
+# Source: vm-agents/templates/ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: "vm-agents-ingress"
+  namespace: default
+  labels:
+    app: "vm-agents"
+    helm.sh/chart: vm-agents-1.0.0
+    app.kubernetes.io/name: vm-agents
+    app.kubernetes.io/instance: vm-agents
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/proxy-body-size: "20m"
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - "backend.vedcsn.com"
+      secretName: backend-vedcsn-tls
+  rules:
+    - host: "backend.vedcsn.com"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: "vm-agents"
+                port:
+                  number: 8000

@@ -1,0 +1,15 @@
+apiVersion: v2
+name: vm-agents
+description: A Helm chart for VM Agents monitoring application with Prometheus metrics and OpenTelemetry support
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - monitoring
+  - prometheus
+  - opentelemetry
+  - metrics
+  - vm-agents
+  - alloy
+maintainers:
+  - name: DevOps Team

@@ -1,0 +1,388 @@
+---
+# Source: vm-agents/templates/alloy-configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vm-agents-alloy
+  namespace: monitoring
+  labels:
+    helm.sh/chart: vm-agents-1.0.0
+    app.kubernetes.io/name: vm-agents
+    app.kubernetes.io/instance: vm-agents
+    app: vm-agents
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+data:
+  config.alloy: |
+    // ============================================================================
+    // Logging Configuration
+    // ============================================================================
+    logging {
+      level  = "info"
+      format = "logfmt"
+    }
+
+    // ============================================================================
+    // Kubernetes Pod Discovery
+    // Discovers pods in specified namespaces or on the current node
+    // ============================================================================
+    discovery.kubernetes "pods" {
+      role = "pod"
+      // Namespace-based discovery: Discover pods across specified namespaces
+      namespaces {
+        names = ["default","monitoring"]
+      }
+    }
+
+    // ============================================================================
+    // Relabeling Rules for Metrics Scraping
+    // ANNOTATION-DRIVEN: Pods control their own scraping via annotations
+    // No hardcoded pod names or labels - fully dynamic discovery
+    // ============================================================================
+    discovery.relabel "metrics_pods" {
+      targets = discovery.kubernetes.pods.targets
+
+      // --------------------------------------------------------------------
+      // FILTER: Keep only pods with prometheus.io/scrape annotation
+      // This is ANNOTATION-DRIVEN - no hardcoded pod names!
+      // Any pod can opt-in to scraping by adding: prometheus.io/scrape: "true"
+      // --------------------------------------------------------------------
+      rule {
+        source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_scrape"]
+        action        = "keep"
+        regex         = "true"
+      }
+
+      // --------------------------------------------------------------------
+      // EXTRACT: Core Kubernetes metadata as labels
+      // --------------------------------------------------------------------
+
+      // Extract namespace from pod metadata
+      rule {
+        source_labels = ["__meta_kubernetes_namespace"]
+        action        = "replace"
+        target_label  = "namespace"
+      }
+
+      // Extract pod name from pod metadata
+      rule {
+        source_labels = ["__meta_kubernetes_pod_name"]
+        action        = "replace"
+        target_label  = "pod"
+      }
+
+      // Extract container name from pod metadata
+      rule {
+        source_labels = ["__meta_kubernetes_pod_container_name"]
+        action        = "replace"
+        target_label  = "container"
+      }
+
+      // Set job label as namespace/container for metric grouping
+      rule {
+        source_labels = ["__meta_kubernetes_namespace", "__meta_kubernetes_pod_container_name"]
+        separator     = "/"
+        action        = "replace"
+        replacement   = "$1"
+        target_label  = "job"
+      }
+
+      // --------------------------------------------------------------------
+      // ANNOTATION-DRIVEN: Map all pod labels and annotations as labels
+      // These are available to the pipeline but can be filtered later
+      // --------------------------------------------------------------------
+
+      // Make all labels on the pod available to the pipeline as labels
+      rule {
+        action = "labelmap"
+        regex  = "__meta_kubernetes_pod_label_(.+)"
+      }
+
+      // Make all annotations on the pod available to the pipeline as labels
+      // This enables annotation-driven configuration
+      rule {
+        action = "labelmap"
+        regex  = "__meta_kubernetes_pod_annotation_(.+)"
+      }
+
+      // --------------------------------------------------------------------
+      // STANDARD LABELS: Extract common Kubernetes labels
+      // --------------------------------------------------------------------
+
+      // Extract app.kubernetes.io/name label if present (standard Kubernetes label)
+      rule {
+        source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_name"]
+        regex         = "(.+)"
+        target_label  = "app_kubernetes_io_name"
+      }
+
+      // Allow custom job override via annotation k8s.grafana.com/job
+      rule {
+        source_labels = ["__meta_kubernetes_pod_annotation_k8s_grafana_com_job"]
+        regex         = "(.+)"
+        target_label  = "job"
+      }
+
+      // --------------------------------------------------------------------
+      // SCRAPING: Configure scrape endpoint details via annotations
+      // --------------------------------------------------------------------
+
+      // Set scrape address from pod IP and port annotation
+      // Default port from container, override via prometheus.io/port annotation
+      rule {
+        source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_port"]
+        action        = "replace"
+        target_label  = "__meta_kubernetes_pod_container_port_number"
+      }
+
+      rule {
+        source_labels = ["__meta_kubernetes_pod_ip", "__meta_kubernetes_pod_container_port_number"]
+        separator     = ":"
+        action        = "replace"
+        target_label  = "__address__"
+      }
+
+      // Set metrics path from annotation or use default
+      // Override via prometheus.io/path annotation (default: /metrics)
+      rule {
+        source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_path"]
+        action        = "replace"
+        target_label  = "__metrics_path__"
+        regex         = "(.+)"
+      }
+
+      rule {
+        action       = "replace"
+        target_label = "__metrics_path__"
+        replacement  = "/metrics"
+      }
+    }
+
+    // ============================================================================
+    // Prometheus Scraping Configuration
+    // Scrapes all pods that opted in via prometheus.io/scrape annotation
+    // ============================================================================
+    prometheus.scrape "metrics" {
+      targets         = discovery.relabel.metrics_pods.output
+      scrape_interval = "15s"
+      scrape_timeout  = "10s"
+      clustering {
+        enabled = true
+      }
+
+      forward_to = [prometheus.remote_write.vmagent.receiver]
+    }
+
+    // ============================================================================
+    // Prometheus Remote Write
+    // Sends scraped metrics to Victoria Metrics agent
+    // No authentication - simple internal cluster communication
+    // ============================================================================
+    prometheus.remote_write "vmagent" {
+      endpoint {
+        url = "http://vmagent.monitoring.svc.cluster.local:8429/api/v1/write"
+      }
+      external_labels = {
+        "cluster" = "neo-k8s",
+        "environment" = "production",
+      }
+    }
+
+    // ============================================================================
+    // Additional Kubernetes Discovery
+    // For comprehensive cluster monitoring (optional)
+    // ============================================================================
+    discovery.kubernetes "nodes" {
+      role = "node"
+    }
+
+    discovery.kubernetes "services" {
+      role = "service"
+    }
+
+    discovery.kubernetes "endpoints" {
+      role = "endpoints"
+    }
+
+    discovery.kubernetes "endpointslices" {
+      role = "endpointslice"
+    }
+
+    discovery.kubernetes "ingresses" {
+      role = "ingress"
+    }
+---
+# Source: vm-agents/templates/pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vm-agents
+  labels:
+    helm.sh/chart: vm-agents-1.0.0
+    app.kubernetes.io/name: vm-agents
+    app.kubernetes.io/instance: vm-agents
+    app: vm-agents
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: "5Gi"
+  storageClassName: "gp3"
+---
+# Source: vm-agents/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: vm-agents
+  labels:
+    helm.sh/chart: vm-agents-1.0.0
+    app.kubernetes.io/name: vm-agents
+    app.kubernetes.io/instance: vm-agents
+    app: vm-agents
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    prometheus.io/port: "8000"
+    prometheus.io/scrape: "true"
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8000
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: vm-agents
+    app.kubernetes.io/instance: vm-agents
+    app: vm-agents
+---
+# Source: vm-agents/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vm-agents
+  labels:
+    helm.sh/chart: vm-agents-1.0.0
+    app.kubernetes.io/name: vm-agents
+    app.kubernetes.io/instance: vm-agents
+    app: vm-agents
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vm-agents
+      app.kubernetes.io/instance: vm-agents
+      app: vm-agents
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "8000"
+        prometheus.io/scrape: "true"
+      labels:
+        helm.sh/chart: vm-agents-1.0.0
+        app.kubernetes.io/name: vm-agents
+        app.kubernetes.io/instance: vm-agents
+        app: vm-agents
+        app.kubernetes.io/version: "1.0.0"
+        app.kubernetes.io/managed-by: Helm
+        app: vm-agents-deploy
+    spec:
+      serviceAccountName: vm-agents
+      securityContext:
+        fsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+      - name: vm-agents
+        securityContext:
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 1000
+        image: "ved104/prom-functions:latest"
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8000
+          protocol: TCP
+        env:
+        - name: PUSHGATEWAY_URL
+          value: "http://pushgateway-prometheus-pushgateway.monitoring.svc.cluster.local:9091"
+        - name: PUSH_INTERVAL
+          value: "15"
+        - name: JOB_NAME
+          value: "prometheus-functions"
+        livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+        readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+        resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 250m
+              memory: 256Mi
+        volumeMounts:
+        - name: data
+          mountPath: /app/data
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: vm-agents
+---
+# Source: vm-agents/templates/ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: vm-agents
+  labels:
+    helm.sh/chart: vm-agents-1.0.0
+    app.kubernetes.io/name: vm-agents
+    app.kubernetes.io/instance: vm-agents
+    app: vm-agents
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/server-snippet: |
+      location /metrics {
+        deny all;
+        return 403;
+      }
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - "workers.vedcsn.com"
+      secretName: workers-vedcsn-tls
+  rules:
+    - host: "workers.vedcsn.com"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: vm-agents
+                port:
+                  number: 8000

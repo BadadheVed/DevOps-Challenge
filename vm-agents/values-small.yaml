@@ -1,0 +1,60 @@
+# Small App Configuration
+# Use this for apps with lower resource requirements and minimal storage needs
+#
+# Deploy with:
+#   helm install my-small-app ./vm-agents -f values-small.yaml
+#
+# Or combine with custom values:
+#   helm install my-app ./vm-agents -f values.yaml -f values-small.yaml
+
+# Application replicas
+replicaCount: 2
+
+# Pod Labels - customize per app
+podLabels:
+  app: vm-agents-small
+  tier: development
+
+# Resource Limits - Optimized for small workloads
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Persistent Storage - Small configuration
+persistence:
+  enabled: true
+  storageClass: "gp3"
+  size: 5Gi        # 5GB storage for small apps
+  mountPath: /data
+  accessModes:
+    - ReadWriteOnce
+
+# Ingress - Customize hostname per app
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/server-snippet: |
+      location /metrics {
+        deny all;
+        return 403;
+      }
+  hosts:
+    - host: small-app.vedcsn.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: small-app-vedcsn-tls
+      hosts:
+        - small-app.vedcsn.com
+
+# Autoscaling - Disabled for small apps
+autoscaling:
+  enabled: false
